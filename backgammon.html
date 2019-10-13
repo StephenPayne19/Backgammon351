@@ -16,23 +16,26 @@
 attribute vec4 vPosition;
 uniform   mat4 modelView;
 uniform   mat4 projection;
+attribute vec4 vColor;
+varying vec4 fColor;
 
 void
 main()
 {
     gl_Position = projection * modelView * vPosition;
+    fColor = vColor;
 }
 </script>
 
 <script id="fragment-shader" type="x-shader/x-fragment">
 precision mediump float;
    
-uniform vec4 color;
+varying vec4 fColor;
 
 void
 main()
 {
-    gl_FragColor = color;
+    gl_FragColor = fColor;
 }
 </script>
 

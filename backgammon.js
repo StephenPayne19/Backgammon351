@@ -4,6 +4,9 @@ var colorLoc;
 var modelViewLoc;
 var projectionLoc;
 
+var widthTriangles = 2*boardDiffX/12;
+var lightBrown = vec4(0.2, 0.05, 0.05, 1.0);
+var darkBrown = vec4(0.6, 0.45, 0.05, 1.0);
 var vertices = [];
 var colors = [];
 var shadowColor = vec4(0.0, 0.0, 0.0, 1.0);
@@ -13,9 +16,12 @@ var angles = [];
 var c = [];
 var s = [];
 
+var allTriangles = [];
+var boardVertices = [];
 var boardDiffX = 27;
 var boardDiffZ = 18;
 var greenOffset = 1;
+var triangleWidth = 5;
 var tableSize = 20;
 var tableSize2 = tableSize / 2.0;
 var windowMin = -tableSize2;
@@ -46,7 +52,7 @@ window.onload = function init() {
 
 	// Load vertices and colors for cube faces
 
-	vertices = [
+	boardVertices = [
 		vec4(-boardDiffX, 1.0, boardDiffZ, 1.0),
 		vec4(-boardDiffX, tableSize + 10, boardDiffZ, 1.0),
 		vec4(boardDiffX, tableSize + 10, boardDiffZ, 1.0),
@@ -62,27 +68,43 @@ window.onload = function init() {
 	];
 
 
-	colors = [
-		vec4(0.2, 0.05, 0.05, 1.0),  // red
-		vec4(1.0, 1.0, 0.0, 1.0),  // yellow
-		vec4(0.0, 1.0, 0.0, 1.0),  // green
-		vec4(0.6, 0.45, 0.05, 1.0),  // blue
-		vec4(1.0, 0.0, 1.0, 1.0),  // magenta
-		vec4(0.0, 1.0, 1.0, 1.0),   // cyan
-		vec4(0.0, 1.0, 0.0, 1.0)
-	];
 
 	// Load indices to represent the triangles that will draw each face
 
-	indices = [
-		1, 0, 3, 3, 2, 1,  // front face
-		2, 3, 7, 7, 6, 2,  // right face
-		3, 0, 4, 4, 7, 3,  // bottom face
-		6, 5, 1, 1, 2, 6,  // top face
-		4, 5, 6, 6, 7, 4,  // back face
-		5, 4, 0, 0, 1, 5,   // left face
-		9, 8, 10, 10, 11, 9 //green board
-	];
+	// indices = [
+	// 	1, 0, 3, 3, 2, 1,  // front face
+	// 	2, 3, 7, 7, 6, 2,  // right face
+	// 	3, 0, 4, 4, 7, 3,  // bottom face
+	// 	6, 5, 1, 1, 2, 6,  // top face
+	// 	4, 5, 6, 6, 7, 4,  // back face
+	// 	5, 4, 0, 0, 1, 5,   // left face
+	// 	9, 8, 10, 10, 11, 9 //green board
+	// ];
+
+	this.vertices = [boardVertices[1], boardVertices[0],boardVertices[3],boardVertices[3],
+					boardVertices[2], boardVertices[1],
+					boardVertices[6], boardVertices[5],boardVertices[1],boardVertices[1],
+					boardVertices[2], boardVertices[6]];
+
+	for(var i = 0; i < 12; i++){
+		if ( i < 6) this.colors.push(lightBrown);
+		else this.colors.push(this.darkBrown);
+	}
+
+	this.vertices.push(this.boardVertices[9]);
+	this.vertices.push(this.boardVertices[8]);
+	this.vertices.push(this.boardVertices[10]);
+	this.vertices.push(this.boardVertices[10])
+	this.vertices.push(this.boardVertices[11]);
+	this.vertices.push(this.boardVertices[9]);
+
+	for(var i = 0; i < 6; i++) this.colors.push(vec4(0.0,1.0,0.0,1.0));
+
+	for(var i = 0; i< 12; i++){
+		allTriangles.push(new Triangle())
+	}
+
+
 
 	theta[0] = 68.0;
 	theta[1] = 0.0;
@@ -115,7 +137,7 @@ window.onload = function init() {
 	var program = initShaders(gl, "vertex-shader", "fragment-shader");
 	gl.useProgram(program);
 
-	colorLoc = gl.getUniformLocation(program, "color");
+	// colorLoc = gl.getUniformLocation(program, "color");
 	modelViewLoc = gl.getUniformLocation(program, "modelView");
 	projectionLoc = gl.getUniformLocation(program, "projection");
 
@@ -127,9 +149,17 @@ window.onload = function init() {
 	gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
 	gl.enableVertexAttribArray(vPosition);
 
-	var iBuffer = gl.createBuffer();
-	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, iBuffer);
-	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint8Array(indices), gl.STATIC_DRAW);
+	var cBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, flatten(colors), gl.STATIC_DRAW);
+
+	var vColor = gl.getAttribLocation(program, "vColor");
+	gl.vertexAttribPointer(vColor, 4, gl.FLOAT, false, 0, 0);
+	gl.enableVertexAttribArray(vColor);
+
+	// var iBuffer = gl.createBuffer();
+	// gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, iBuffer);
+	// gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint8Array(indices), gl.STATIC_DRAW);
 
 	render();
 };
@@ -175,10 +205,13 @@ function render() {
 	modelView = mult(looking, mult(tz2, mult(rotation, tz1)));
 	gl.uniformMatrix4fv(modelViewLoc, false, flatten(modelView));
 	gl.uniformMatrix4fv(projectionLoc, false, flatten(projection));
-	for (var i = 0; i < 7; i++) {
-		gl.uniform4fv(colorLoc, colors[i]);
-		gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_BYTE, 6 * i);
-	}
+	
+	// for (var i = 0; i < boardVertices.length; i++) {
+	// 	if(i/4 >= 1) gl.uniform4fv(colorLoc, colors[0]);
+	// 	else gl.uniform4fv(colorLoc, colors[1]);
+	// }
+		gl.drawArrays(gl.TRIANGLES, 0, vertices.length);
+	
 
 	// Do the shadow.
 	// shadowProjection = mat4();
@@ -195,3 +228,17 @@ function render() {
 
 	requestAnimFrame(render);
 };
+
+class Triangle{
+	constructor(x, z){
+		this.x = x;
+		this.z = z;
+		this.stack = [];
+	}
+
+	pushVertices(){
+		this.vertices.push(vec3(x, 11, z),vec3(x+widthTriangles, 11, z),vec3(x+(0.5*widthTriangles), 11, z))
+	}
+
+
+}
